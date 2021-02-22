@@ -1,0 +1,115 @@
+Ref : https://docs.microsoft.com/en-us/powershell/module/azuread/connect-azuread?view=azureadps-2.0
+
+
+# login from powershell command.
+Connect-AzureAD
+
+
+# Create the self signed cert
+$pwd = "SOMERANDOMPASSWORD"
+$notAfter = (Get-Date).AddMonths(12) # Valid for 6 months
+$thumb = (New-SelfSignedCertificate -DnsName "drumkit.onmicrosoft.com" -CertStoreLocation "cert:\LocalMachine\My"  -KeyExportPolicy Exportable -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider").Thumbprint
+$pwd = ConvertTo-SecureString -String $pwd -Force -AsPlainText
+Get-ChildItem -Path "cert:\localmachine\my\$thumb" | Export-PfxCertificate -FilePath C:\mypfx.pfx -Password $pwd
+
+# Load the certificate
+$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate("C:\mypfx.pfx", $pwd)
+echo $cert
+$keyValue = [System.Convert]::ToBase64String($cert.GetRawCertData())
+echo $keyvalue
+
+# Create the Azure Active Directory Application
+$application = New-AzureADApplication -DisplayName "MFA_APP" -IdentifierUris "https://MFA_APP"
+echo $application
+New-AzureADApplicationKeyCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "MFA_APP" -Type AsymmetricX509Cert -Usage Verify -Value $keyValue
+
+# Create the Service Principal and connect it to the Application
+$sp=New-AzureADServicePrincipal -AppId $application.AppId 
+
+# Give the Service Principal Reader access to the current tenant (Get-AzureADDirectoryRole)
+Add-AzureADDirectoryRoleMember -ObjectId (Get-AzureADDirectoryRole | where-object {$_.DisplayName -eq "Directory Readers"}).Objectid -RefObjectId $sp.ObjectId
+
+# Get Tenant Detail
+$tenant=Get-AzureADTenantDetail
+Start-Sleep -Seconds 15
+
+# Now you can login to Azure PowerShell with your Service Principal and Certificate
+Connect-AzureAD -TenantId $tenant.ObjectId -ApplicationId  $Application.AppId -CertificateThumbprint $thumb
+
+
+Note: From portal you can validate your app.
+search > App registrations > All applications > MFA_APP
+Note: microsoft this this step . I am not sure about it.
+search > Active Directopry > Enterprise applications > Application Type Dropdown > select "All applications" > click Apply > now search for MFA_APP.
+MFA_APP > Assign Users and groups > Add user/group > select username and apply.
+
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+#Note:In below command you need to enter password for amit.suneja@gmail.com ID)
+Read-Host -assecurestring | convertfrom-securestring | out-file C:\cred.txt 
+
+# Set Configs
+$TenantId = "XXXX_XXX_XXXX_XXXX_XXXXX"
+$AzureUser = "amit.suneja@gmail.com" 
+$AzurePass = Get-Content "c:\cred.txt" | ConvertTo-SecureString
+
+# Note : below it will not ask for password to login to AD
+#Connect to Azure AD
+$AzureCred = New-Object -TypeName "System.Management.Automation.PSCredential" -ArgumentList $AzureUser, $AzurePass
+Connect-AzureAD -TenantId $TenantId -Credential $AzureCred
+
+# Read IpaddressFile
+$File_Content = Get-Content "d:\IP-List.txt"
+
+# Provide the Displayname of the Named Location
+$DisplayName = "MFALOC"
+ 
+# Store the values from TXT file in a variable ensuring that each IP is on a separate line. This splits the content based on comma, space and new line (Default)
+$All_IPS = $File_Content.Split(",").Split("")
+ 
+# Create a array to store the final list of IP address from the source file with any blank rows removed.
+$IP2Add = [System.Collections.ArrayList]@()
+ 
+Foreach ($IP IN $All_IPS)
+{
+  If ($IP -ne "")
+  {
+  #  Write-Host "Ip is : $IP" -BackgroundColor Green
+  $null = $IP2Add.Add($IP)
+  }
+  Else
+  {
+   # Write-Host "Ip is : $IP" -BackgroundColor Yellow
+  $null = $IP2Add.Remove($IP)
+  }
+}
+ 
+# Remove Duplicates IP address
+$NewIP2Add = $IP2Add | Sort-Object | Get-Unique
+$IPCount = $NewIP2Add.Count
+Write-Host "There are '$IPCount' new IP's to be added to named location, Below is the list." -BackgroundColor Yellow
+$NewIP2Add
+ 
+# Fetch The Policy ID
+$PolicyID = (Get-AzureADMSNamedLocationPolicy | Where-Object {$_.DisplayName -eq $DisplayName}).ID
+ 
+# Updating the IP's in the Named Location Policy
+# Set-AzureADMSNamedLocationPolicy -PolicyID $PolicyID -OdataType "#microsoft.graph.ipNamedLocation" -IpRanges "10.1.1.1/32","10.1.1.3/32" # This one works but replaces existing values
+ 
+# Fetch the existing list of IP's from the Named Location
+# $ExistingIPs = (Get-AzureADMSNamedLocationPolicy -PolicyId $PolicyID).IpRanges (I Fixed code here...Not required)
+ 
+# Combine the IP list for IP range from TXT file and existing list from Named Location 
+# $OverALlIP = $ExistingIPs + $NewIP2Add (I Fixed code here...)
+$OverALlIP =  $NewIP2Add
+ 
+# Update the Combined IP Range, If there are any Duplicate values, it will take care of it.
+Set-AzureADMSNamedLocationPolicy -PolicyID $PolicyID -OdataType "#microsoft.graph.ipNamedLocation" -IpRanges $overALlIP
+ 
+# Displays the final list of IP updated on the Named Location
+Write-Host ""
+Write-Host "Below is the list of IP's that are updated on the Named Location '$DisplayName'" -BackgroundColor Yellow
+
+Note: From portal you can validate your above steps.
+Active Directory > security > Conditional Access >Named locations > MFALOC 
+if you are running script for first time , then you must create dummy entry in MFALOC like 1.1.1.1/32
