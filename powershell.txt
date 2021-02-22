@@ -1,0 +1,77 @@
+PS C:\WINDOWS\system32> Get-ExecutionPolicy -List
+
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+   UserPolicy       Undefined
+      Process       Undefined
+  CurrentUser       Undefined
+ LocalMachine       Undefined
+
+
+
+PS C:\WINDOWS\system32> Get-ExecutionPolicy -Scope CurrentUser
+Undefined
+
+PS C:\WINDOWS\system32> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+
+PS C:\WINDOWS\system32> Get-Item .
+
+
+    Directory: C:\WINDOWS
+
+
+Mode                 LastWriteTime         Length Name                                                               
+----                 -------------         ------ ----                                                               
+d-----        01-02-2021     12:29                system32                                                           
+
+
+
+PS C:\WINDOWS\system32> Get-PSProvider
+
+Name                 Capabilities                                     Drives                                         
+----                 ------------                                     ------                                         
+Registry             ShouldProcess, Transactions                      {HKLM, HKCU}                                   
+Alias                ShouldProcess                                    {Alias}                                        
+Environment          ShouldProcess                                    {Env}                                          
+FileSystem           Filter, ShouldProcess, Credentials               {C, D}                                         
+Function             ShouldProcess                                    {Function}                                     
+Variable             ShouldProcess                                    {Variable}                                     
+Certificate          ShouldProcess                                    {Cert}                                         
+
+
+
+PS C:\WINDOWS\system32> Get-PSProvider | Format-Table name, module, pssnapin -auto
+
+Name        Module                        PSSnapIn                 
+----        ------                        --------                 
+Registry                                  Microsoft.PowerShell.Core
+Alias                                     Microsoft.PowerShell.Core
+Environment                               Microsoft.PowerShell.Core
+FileSystem                                Microsoft.PowerShell.Core
+Function                                  Microsoft.PowerShell.Core
+Variable                                  Microsoft.PowerShell.Core
+Certificate Microsoft.PowerShell.Security                          
+
+
+
+PS C:\WINDOWS\system32> Get-PackageProvider -Name nuget -ForceBootstrap
+
+
+Name                     Version          DynamicOptions                                                             
+----                     -------          --------------                                                             
+NuGet                    2.8.5.208        Destination, ExcludeVersion, Scope, SkipDependencies, Headers, FilterOnT...
+
+
+
+PS C:\WINDOWS\system32> 
+
+
+PS C:\WINDOWS\system32> Install-Module AzureAD
+
+PS C:\WINDOWS\system32> Get-InstalledModule
+
+Version    Name                                Repository           Description                                      
+-------    ----                                ----------           -----------                                      
+2.0.2.130  AzureAD                             PSGallery            Azure Active Directory V2 General Availability...
+
